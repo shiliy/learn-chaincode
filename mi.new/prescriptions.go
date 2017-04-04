@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"encoding/json"
-	"regexp"
 )
 
 var logger = shim.NewLogger("MIChaincode")
@@ -119,20 +118,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 
 func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var r Request
-
-	id         		 :=  args[0]					// Variables to define the JSON
-	din            :=  args[1]
-	state          := "0"
-
-	request_json := "{"+id+din+state+"}" 	// Concatenates the variables to create the total JSON object
-
-	matched, err := regexp.Match("^[A-z][A-z][0-9]{7}", []byte("aa1234567")) // hack, always match, just to declare the 'err'
-	if 	matched == false    {
-					return nil, errors.New("Invalid JSON provided")
-	}
-	err = json.Unmarshal([]byte(request_json), &r)							// Convert the JSON defined above into a vehicle object for go
-
-	if err != nil { return nil, errors.New("Invalid JSON object") }
+	r.ID = args[0]
+	r.DIN = args[1]
 	r.State = STATE_CREATED
 
 	record, err := stub.GetState(r.ID) 								// If not an error then a record exists so cant create a new request
