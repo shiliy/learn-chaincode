@@ -59,10 +59,12 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	//	t.add_ecert(stub, args[i], args[i+1])
 	// }
 	var r Request
+	
 	r.ID = "ID000"
 	r.DIN = "DIN000"
 	r.State = STATE_CREATED
-	_, err  = t.save_changes(stub, r)
+
+	_, err := t.save_changes(stub, r)
 
 	if err != nil { fmt.Printf("INIT: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
@@ -121,7 +123,7 @@ func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface) ([]by
 
 	id         		 := "\"ID\":\"UNDEFINED\", "						// Variables to define the JSON
 	din            := "\"DIN\":0, "
-	state           = STATE_CREATED
+	state          := ""
 
 	request_json := "{"+id+din+state+"}" 	// Concatenates the variables to create the total JSON object
 
@@ -132,6 +134,7 @@ func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface) ([]by
 	err = json.Unmarshal([]byte(request_json), &r)							// Convert the JSON defined above into a vehicle object for go
 
 	if err != nil { return nil, errors.New("Invalid JSON object") }
+	r.State = STATE_CREATED
 
 	record, err := stub.GetState(r.ID) 								// If not an error then a record exists so cant create a new request
 
@@ -145,7 +148,7 @@ func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface) ([]by
 
 	if err != nil { fmt.Printf("CREATE_REQUEST: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
-	return r.ID, nil
+	return []byte (r.ID), nil
 }
 //=================================================================================================================================
 //	 Transfer Functions
