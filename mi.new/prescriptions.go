@@ -59,7 +59,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	//	t.add_ecert(stub, args[i], args[i+1])
 	// }
 	var r Request
-	
+
 	r.ID = "ID000"
 	r.DIN = "DIN000"
 	r.State = STATE_CREATED
@@ -103,10 +103,9 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
         return t.create_request(stub)
 	} else {
 			// If the function is not a create then there must be a request so we need to retrieve it.
-			argPos := 1
-			bytes, err := stub.GetState(args[argPos])
+			bytes, err := stub.GetState(args[0])
 
-			if err != nil {	fmt.Printf("INVOKE: reqeust can't be found : %s", err); return nil, errors.New("INVOKE: reqeust can't be found "+string(argPos))	}
+			if err != nil {	fmt.Printf("INVOKE: reqeust can't be found : %s", err); return nil, errors.New("INVOKE: reqeust can't be found ")	}
 
 			err = json.Unmarshal(bytes, &r);
 			if err != nil {	fmt.Printf("INVOKE: request corrupted : %s", err); return nil, errors.New("INVOKE: reqeust corrupted "+string(bytes))	}
@@ -171,7 +170,8 @@ func (t *SimpleChaincode) review_request(stub shim.ChaincodeStubInterface, r Req
 
 	if err != nil {	fmt.Printf("REVIEW_REQUEST: Error saving changes: %s", err); return nil, errors.New("Error saving changes")	}
 
-	return nil, nil									// We are Done
+	bytes, err := json.Marshal(r)
+	return bytes, nil									// We are Done
 
 }
 
