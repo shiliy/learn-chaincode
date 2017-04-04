@@ -100,7 +100,7 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 	var r Request
 
 	if function == "create_request" {
-        return t.create_request(stub)
+        return t.create_request(stub, args)
 	} else {
 			// If the function is not a create then there must be a request so we need to retrieve it.
 			bytes, err := stub.GetState(args[0])
@@ -117,11 +117,11 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 
 }
 
-func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface) ([]byte, error) {
+func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var r Request
 
-	id         		 := "\"ID\":\"UNDEFINED\", "						// Variables to define the JSON
-	din            := "\"DIN\":0, "
+	id         		 :=  args[0]					// Variables to define the JSON
+	din            :=  args[1]
 	state          := ""
 
 	request_json := "{"+id+din+state+"}" 	// Concatenates the variables to create the total JSON object
