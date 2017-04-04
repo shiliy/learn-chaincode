@@ -122,7 +122,7 @@ func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface, args 
 
 	id         		 :=  args[0]					// Variables to define the JSON
 	din            :=  args[1]
-	state          := ""
+	state          := "0"
 
 	request_json := "{"+id+din+state+"}" 	// Concatenates the variables to create the total JSON object
 
