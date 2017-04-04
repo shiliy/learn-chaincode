@@ -58,6 +58,13 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	// for i:=0; i < len(args); i=i+2 {
 	//	t.add_ecert(stub, args[i], args[i+1])
 	// }
+	var r Request
+	r.ID = "ID000"
+	r.DIN = "DIN000"
+	r.State = STATE_CREATED
+	_, err  = t.save_changes(stub, r)
+
+	if err != nil { fmt.Printf("INIT: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
 	return nil, nil
 }
@@ -114,13 +121,13 @@ func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface) ([]by
 
 	id         		 := "\"ID\":\"UNDEFINED\", "						// Variables to define the JSON
 	din            := "\"DIN\":0, "
-	state           := "\"State\":\"UNDEFINED\", "
+	state           = STATE_CREATED
 
 	request_json := "{"+id+din+state+"}" 	// Concatenates the variables to create the total JSON object
 
 	matched, err := regexp.Match("^[A-z][A-z][0-9]{7}", []byte("aa1234567")) // hack, always match, just to declare the 'err'
 	if 	matched == false    {
-					return nil, errors.New("Invalid v5cID provided")
+					return nil, errors.New("Invalid JSON provided")
 	}
 	err = json.Unmarshal([]byte(request_json), &r)							// Convert the JSON defined above into a vehicle object for go
 
@@ -138,7 +145,7 @@ func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface) ([]by
 
 	if err != nil { fmt.Printf("CREATE_REQUEST: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
-	return nil, nil
+	return r.ID, nil
 }
 //=================================================================================================================================
 //	 Transfer Functions
