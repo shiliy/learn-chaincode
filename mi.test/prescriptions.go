@@ -47,15 +47,6 @@ type Request struct {
 
 
 //==============================================================================================================================
-//	User_and_eCert - Struct for storing the JSON of a user and their ecert
-//==============================================================================================================================
-
-type User_and_eCert struct {
-	Identity string `json:"identity"`
-	eCert string `json:"ecert"`
-}
-
-//==============================================================================================================================
 //	Init Function - Called when the user deploys the chaincode
 //==============================================================================================================================
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
@@ -64,93 +55,19 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	//				0
 	//			peer_address
 
-	for i:=0; i < len(args); i=i+2 {
-		t.add_ecert(stub, args[i], args[i+1])
-	}
+	// for i:=0; i < len(args); i=i+2 {
+	//	t.add_ecert(stub, args[i], args[i+1])
+	// }
+	var r Request
+	r.ID = "ID000"
+	r.DIN = "DIN000"
+	r.State = STATE_CREATED
+	_, err  = t.save_changes(stub, r)
+
+	if err != nil { fmt.Printf("INIT: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
 	return nil, nil
 }
-
-//==============================================================================================================================
-//	 General Functions
-//==============================================================================================================================
-//	 get_ecert - Takes the name passed and calls out to the REST API for HyperLedger to retrieve the ecert
-//				 for that user. Returns the ecert as retrived including html encoding.
-//==============================================================================================================================
-func (t *SimpleChaincode) get_ecert(stub shim.ChaincodeStubInterface, name string) ([]byte, error) {
-
-	ecert, err := stub.GetState(name)
-
-	if err != nil { return nil, errors.New("Couldn't retrieve ecert for user " + name) }
-
-	return ecert, nil
-}
-
-//==============================================================================================================================
-//	 add_ecert - Adds a new ecert and user pair to the table of ecerts
-//==============================================================================================================================
-
-func (t *SimpleChaincode) add_ecert(stub shim.ChaincodeStubInterface, name string, ecert string) ([]byte, error) {
-
-
-	err := stub.PutState(name, []byte(ecert))
-
-	if err == nil {
-		return nil, errors.New("Error storing eCert for user " + name + " identity: " + ecert)
-	}
-
-	return nil, nil
-
-}
-
-
-
-//==============================================================================================================================
-//	 get_caller - Retrieves the username of the user who invoked the chaincode.
-//				  Returns the username as a string.
-//==============================================================================================================================
-
-func (t *SimpleChaincode) get_username(stub shim.ChaincodeStubInterface) (string, error) {
-
-    username, err := stub.ReadCertAttribute("username");
-	if err != nil { return "", errors.New("Couldn't get attribute 'username'. Error: " + err.Error()) }
-	return string(username), nil
-}
-
-//==============================================================================================================================
-//	 check_affiliation - Takes an ecert as a string, decodes it to remove html encoding then parses it and checks the
-// 				  		certificates common name. The affiliation is stored as part of the common name.
-//==============================================================================================================================
-
-func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface) (string, error) {
-    affiliation, err := stub.ReadCertAttribute("role");
-	if err != nil { return "", errors.New("Couldn't get attribute 'role'. Error: " + err.Error()) }
-	return string(affiliation), nil
-
-}
-
-//==============================================================================================================================
-//	 get_caller_data - Calls the get_ecert and check_role functions and returns the ecert and role for the
-//					 name passed.
-//==============================================================================================================================
-
-func (t *SimpleChaincode) get_caller_data(stub shim.ChaincodeStubInterface) (string, string, error){
-
-	user, err := t.get_username(stub)
-
-    // if err != nil { return "", "", err }
-
-	// ecert, err := t.get_ecert(stub, user);
-
-    // if err != nil { return "", "", err }
-
-	affiliation, err := t.check_affiliation(stub);
-
-    if err != nil { return "", "", err }
-
-	return user, affiliation, nil
-}
-
 
 //==============================================================================================================================
 // save_changes - Writes to the ledger the Vehicle struct passed in a JSON format. Uses the shim file's
@@ -180,13 +97,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 
 	var r Request
 
-	caller, caller_affiliation, err := t.get_caller_data(stub)
-
-	if err != nil { return nil, errors.New("Error retrieving caller information")}
-
-
 	if function == "create_request" {
-        return t.create_request(stub, caller, caller_affiliation)
+        return t.create_request(stub)
 	} else {
 			// If the function is not a create then there must be a request so we need to retrieve it.
 			argPos := 1
@@ -197,25 +109,25 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 			err = json.Unmarshal(bytes, &r);
 			if err != nil {	fmt.Printf("INVOKE: request corrupted : %s", err); return nil, errors.New("INVOKE: reqeust corrupted "+string(bytes))	}
 
-			return t.review_request(stub, r, caller, "insurance_company")
+			return t.review_request(stub, r)
 		}
 
 	return nil, errors.New("Function of the name "+ function +" doesn't exist.")
 
 }
 
-func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface, caller string, caller_affiliation string) ([]byte, error) {
+func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface) ([]byte, error) {
 	var r Request
 
 	id         		 := "\"ID\":\"UNDEFINED\", "						// Variables to define the JSON
 	din            := "\"DIN\":0, "
-	state           := "\"State\":\"UNDEFINED\", "
+	state           = STATE_CREATED
 
 	request_json := "{"+id+din+state+"}" 	// Concatenates the variables to create the total JSON object
 
 	matched, err := regexp.Match("^[A-z][A-z][0-9]{7}", []byte("aa1234567")) // hack, always match, just to declare the 'err'
 	if 	matched == false    {
-					return nil, errors.New("Invalid v5cID provided")
+					return nil, errors.New("Invalid JSON provided")
 	}
 	err = json.Unmarshal([]byte(request_json), &r)							// Convert the JSON defined above into a vehicle object for go
 
@@ -233,17 +145,16 @@ func (t *SimpleChaincode) create_request(stub shim.ChaincodeStubInterface, calle
 
 	if err != nil { fmt.Printf("CREATE_REQUEST: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
-	return nil, nil
+	return r.ID, nil
 }
 //=================================================================================================================================
 //	 Transfer Functions
 //=================================================================================================================================
 //	 authority_to_manufacturer
 //=================================================================================================================================
-func (t *SimpleChaincode) review_request(stub shim.ChaincodeStubInterface, r Request, caller string, caller_affiliation string) ([]byte, error) {
+func (t *SimpleChaincode) review_request(stub shim.ChaincodeStubInterface, r Request) ([]byte, error) {
 
-	if  r.State		== STATE_CREATED	&&
-			caller_affiliation		== INSURANCE_COMPANY {		// If the roles and users are ok
+	if  r.State		== STATE_CREATED {		// If the roles and users are ok
 
 					r.State = STATE_APPROVED			// and mark it in the state of manufacture
 
@@ -268,16 +179,10 @@ func (t *SimpleChaincode) review_request(stub shim.ChaincodeStubInterface, r Req
 //=================================================================================================================================
 func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
-	caller, caller_affiliation, err := t.get_caller_data(stub)
-	if err != nil { fmt.Printf("QUERY: Error retrieving caller details", err); return nil, errors.New("QUERY: Error retrieving caller details: "+err.Error()) }
-
-    logger.Debug("function: ", function)
-    logger.Debug("caller: ", caller)
-    logger.Debug("affiliation: ", caller_affiliation)
 
 	if function == "get_request_details" {
 		if len(args) != 1 { fmt.Printf("Incorrect number of arguments passed"); return nil, errors.New("QUERY: Incorrect number of arguments passed") }
-		return t.get_request_details(stub, args[0], caller, caller_affiliation)
+		return t.get_request_details(stub, args[0])
 	}
 	return nil, errors.New("Received unknown function invocation " + function)
 
@@ -288,11 +193,11 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 //=================================================================================================================================
 //	 get_vehicle_details
 //=================================================================================================================================
-func (t *SimpleChaincode) get_request_details(stub shim.ChaincodeStubInterface, id string, caller string, caller_affiliation string) ([]byte, error) {
+func (t *SimpleChaincode) get_request_details(stub shim.ChaincodeStubInterface, id string) ([]byte, error) {
 
 	bytes, err := stub.GetState(id);
 
-	if err != nil { return nil, errors.New("get_vehicle_details: Invalid request object") }
+	if err != nil { return nil, errors.New("get_request_details: Invalid request object") }
 
 	return bytes, nil
 
