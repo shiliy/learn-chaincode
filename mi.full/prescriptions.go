@@ -131,17 +131,18 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	authorization	:=	Authorization{Base:Base{"authorization0"}, PrescriptionID:prescription.ID, DoctorID:patient.DoctorID,
 		InsurerID:patient.InsurerID, PatientID:prescription.PatientID,State: AUTHORIZATION_STATE_CREATED}
 
-	err := patient.save_changes(stub)
+	_, err := t.save_changes(stub, patient)
 	if err != nil { fmt.Printf("INIT: Error saving patient: %s", err); return nil, errors.New("Error saving patient") }
 
-	err = prescription.save_changes(stub)
+	_, err = t.save_changes(stub, prescription)
 	if err != nil { fmt.Printf("INIT: Error saving prescription: %s", err); return nil, errors.New("Error saving prescription") }
 
-	err = authorization.save_changes(stub)
+	_, err = t.save_changes(stub,authorization)
 	if err != nil { fmt.Printf("INIT: Error saving authorization: %s", err); return nil, errors.New("Error saving authorization") }
 
 	return nil, nil
 }
+/*
 //==============================================================================================================================
 // save_changes - Writes to the ledger the Vehicle struct passed in a JSON format. Uses the shim file's
 //				  method 'PutState'.
@@ -158,23 +159,30 @@ func (entry Base) save_changes(stub shim.ChaincodeStubInterface) (error) {
 
 	return nil
 }
-/*
+*/
+
 //==============================================================================================================================
 // save_changes - Writes to the ledger the Vehicle struct passed in a JSON format. Uses the shim file's
 //				  method 'PutState'.
 //==============================================================================================================================
-func (t *SimpleChaincode) save_changes(stub shim.ChaincodeStubInterface, entry Base) (bool, error) {
+func (t *SimpleChaincode) save_changes(stub shim.ChaincodeStubInterface, entry interface{}) (bool, error) {
 
 	bytes, err := json.Marshal(entry)
 
 	if err != nil { fmt.Printf("SAVE_CHANGES: Error converting authorization record: %s", err); return false, errors.New("Error converting authorization record") }
 
-	err = stub.PutState(entry.ID, bytes)
+	base, ok := entry.(Base)
+	if ok {
 
-	if err != nil { fmt.Printf("SAVE_CHANGES: Error storing authorization record: %s", err); return false, errors.New("Error storing authorization record") }
+		err = stub.PutState(base.ID, bytes)
 
-	return true, nil
-}*/
+		if err != nil { fmt.Printf("SAVE_CHANGES: Error storing authorization record: %s", err); return false, errors.New("Error storing authorization record") }
+
+		return true, nil
+	} else
+	{ fmt.Printf("SAVE_CHANGES: Error wrong type: %s", err); return false, errors.New("Error wrong type") }
+
+}
 
 
 //==============================================================================================================================
@@ -217,7 +225,7 @@ func (t *SimpleChaincode) create_authorization(stub shim.ChaincodeStubInterface,
 	//	return nil, errors.New(fmt.Sprintf("Permission Denied. create_authorization. %v === %v", caller_affiliation, AUTHORITY))
 	// }
 
-	err  = a.save_changes(stub)
+	_, err  = t.save_changes(stub,a)
 
 	if err != nil { fmt.Printf("create_authorization: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
@@ -240,7 +248,7 @@ func (t *SimpleChaincode) approve_authorization(stub shim.ChaincodeStubInterface
 
 	}
 
-	err := a.save_changes(stub)						// Write new state
+	_, err := t.save_changes(stub, a)						// Write new state
 
 	if err != nil {	fmt.Printf("approve_authorization: Error saving changes: %s", err); return nil, errors.New("Error saving changes")	}
 
