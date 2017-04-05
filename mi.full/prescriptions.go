@@ -50,16 +50,13 @@ const	AUTHORIZATION_STATE_CANCELED = 3
 type  SimpleChaincode struct {
 }
 
-type Base struct {
-		ID	string	`json:"ID"`
-}
 //==============================================================================================================================
 //	authorization - Defines the structure for a medication authorization authorization object.
 // JSON on right tells it what JSON fields to map to
 //	that element when reading a JSON object into the struct e.g. JSON state -> Struct State.
 //==============================================================================================================================
 type Authorization struct {
-	Base
+	ID								string	`json:"ID"`
 	PrescriptionID		string	`json:"prescriptionID"` // prescription ID to get the details (din/patient)
 	PatientID					string	`json:"patientID"` // info field
 	InsurerID					string	`json:"insurerID"` // insurance company ID to send authorization authorization to
@@ -74,7 +71,7 @@ type Authorization struct {
 //  that element when reading a JSON object into the struct e.g. JSON state -> Struct State.
 //==============================================================================================================================
 type Prescription struct {
-	Base
+	ID					string	`json:"ID"`
 	PatientID		string	`json:"patientID"` // patient ID, need for the benefit manager to find the right insurance componeny to requst authorization
 	DIN					string `json:"DIN"` // DIN to identify the medication
 	State 		  int		`json:"state"`
@@ -87,7 +84,7 @@ type Prescription struct {
 //  that element when reading a JSON object into the struct e.g. JSON state -> Struct State.
 //==============================================================================================================================
 type Patient struct {
-	Base
+	ID					string	`json:"ID"`
 	InsurerID		string	`json:"insurerID"` // insurer
 	DoctorID		string	`json:"doctorID"` // doctor
 
@@ -126,18 +123,18 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	var authorizationR Authorization_Registry
 	*/
 
-	patient	:=	Patient{Base{"patient0"},"insurer0", "doctor0"}
-	prescription	:=	Prescription{Base:Base{"prescription0"}, PatientID: patient.ID, DIN:"DIN0", State: MEDICATION_STATE_SUBMITTED}
-	authorization	:=	Authorization{Base:Base{"authorization0"}, PrescriptionID:prescription.ID, DoctorID:patient.DoctorID,
+	patient	:=	Patient{"patient0","insurer0", "doctor0"}
+	prescription	:=	Prescription{ID: "prescription0", PatientID: patient.ID, DIN:"DIN0", State: MEDICATION_STATE_SUBMITTED}
+	authorization	:=	Authorization{ID: "authorization0", PrescriptionID:prescription.ID, DoctorID:patient.DoctorID,
 		InsurerID:patient.InsurerID, PatientID:prescription.PatientID,State: AUTHORIZATION_STATE_CREATED}
 
-	_, err := t.save_changes(stub, patient)
+	_, err := t.save_changes(stub, patient, patient.ID)
 	if err != nil { fmt.Printf("INIT: Error saving patient: %s", err); return nil, errors.New("Error saving patient") }
 
-	_, err = t.save_changes(stub, prescription)
+	_, err = t.save_changes(stub, prescription, prescription.ID)
 	if err != nil { fmt.Printf("INIT: Error saving prescription: %s", err); return nil, errors.New("Error saving prescription") }
 
-	_, err = t.save_changes(stub,authorization)
+	_, err = t.save_changes(stub, authorization, authorization.ID)
 	if err != nil { fmt.Printf("INIT: Error saving authorization: %s", err); return nil, errors.New("Error saving authorization") }
 
 	return nil, nil
@@ -165,23 +162,17 @@ func (entry Base) save_changes(stub shim.ChaincodeStubInterface) (error) {
 // save_changes - Writes to the ledger the Vehicle struct passed in a JSON format. Uses the shim file's
 //				  method 'PutState'.
 //==============================================================================================================================
-func (t *SimpleChaincode) save_changes(stub shim.ChaincodeStubInterface, entry interface{}) (bool, error) {
+func (t *SimpleChaincode) save_changes(stub shim.ChaincodeStubInterface, entry interface{}, id string) (bool, error) {
 
 	bytes, err := json.Marshal(entry)
 
 	if err != nil { fmt.Printf("SAVE_CHANGES: Error converting authorization record: %s", err); return false, errors.New("Error converting authorization record") }
 
-	base, ok := entry.(Base)
-	if ok {
+	err = stub.PutState(id, bytes)
 
-		err = stub.PutState(base.ID, bytes)
+	if err != nil { fmt.Printf("SAVE_CHANGES: Error storing authorization record: %s", err); return false, errors.New("Error storing authorization record") }
 
-		if err != nil { fmt.Printf("SAVE_CHANGES: Error storing authorization record: %s", err); return false, errors.New("Error storing authorization record") }
-
-		return true, nil
-	} else
-	{ fmt.Printf("SAVE_CHANGES: Error wrong type: %s", err); return false, errors.New("Error wrong type") }
-
+	return true, nil
 }
 
 
@@ -225,7 +216,7 @@ func (t *SimpleChaincode) create_authorization(stub shim.ChaincodeStubInterface,
 	//	return nil, errors.New(fmt.Sprintf("Permission Denied. create_authorization. %v === %v", caller_affiliation, AUTHORITY))
 	// }
 
-	_, err  = t.save_changes(stub,a)
+	_, err  = t.save_changes(stub, a, a.ID)
 
 	if err != nil { fmt.Printf("create_authorization: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
 
@@ -248,7 +239,7 @@ func (t *SimpleChaincode) approve_authorization(stub shim.ChaincodeStubInterface
 
 	}
 
-	_, err := t.save_changes(stub, a)						// Write new state
+	_, err := t.save_changes(stub, a, a.ID)						// Write new state
 
 	if err != nil {	fmt.Printf("approve_authorization: Error saving changes: %s", err); return nil, errors.New("Error saving changes")	}
 
