@@ -185,7 +185,13 @@ func (t *SimpleChaincode) save_changes(stub shim.ChaincodeStubInterface, entry i
 func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
 	if function == "create_authorization" {
-        return t.create_authorization(stub, args)
+      return t.create_authorization(stub, args)
+	} else if function == "create_patient" {
+			return t.create_patient(stub, args)
+	} else if function == "create_prescription" {
+			return t.create_prescription(stub, args)
+	} else if function == "create_authorization" {
+			return t.create_authorization(stub, args)
 	} else {
 			// If the function is not a create then there must be a authorization so we need to retrieve it.
 			var a Authorization
@@ -293,7 +299,7 @@ func (t *SimpleChaincode) create_authorization(stub shim.ChaincodeStubInterface,
 	if err != nil { return nil, errors.New("create_authorization: internal error, Invalid Patient object") }
 	a.InsurerID = patient.InsurerID
 	a.DoctorID = patient.DoctorID
-	
+
 	_, err  = t.save_changes(stub, a, a.ID)
 
 	if err != nil { fmt.Printf("create_authorization: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
