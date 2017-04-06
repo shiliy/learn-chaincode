@@ -203,10 +203,58 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 
 }
 
+func (t *SimpleChaincode) create_patient(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	var p Patient
+	if len(args) != 3 { fmt.Printf("create_patient: Incorrect number of arguments passed"); return nil, errors.New("create_patient: Incorrect number of arguments passed") }
+	record, err := stub.GetState(args[0]) 								// If not an error then a record exists so cant create a new authorization
+
+  if record != nil { return nil, errors.New("patient already exists") }
+
+	// if 	caller_affiliation != AUTHORITY {							// Only the regulator can create a new v5c
+	//	return nil, errors.New(fmt.Sprintf("Permission Denied. create_authorization. %v === %v", caller_affiliation, AUTHORITY))
+	// }
+	p.ID = args[0]
+	p.InsurerID = args[1]
+	p.DoctorID = args[2]
+	_, err  = t.save_changes(stub, p, p.ID)
+
+	if err != nil { fmt.Printf("create_patient: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
+
+	return []byte (p.ID), nil
+}
+
+
+func (t *SimpleChaincode) create_prescription(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	var p Prescription
+	if len(args) != 3 { fmt.Printf("create_prescription: Incorrect number of arguments passed"); return nil, errors.New("create_patient: Incorrect number of arguments passed") }
+
+	record, err := stub.GetState(args[0]) 								// If not an error then a record exists so cant create a new authorization
+
+  if record != nil { return nil, errors.New("prescription already exists") }
+
+	// if 	caller_affiliation != AUTHORITY {							// Only the regulator can create a new v5c
+	//	return nil, errors.New(fmt.Sprintf("Permission Denied. create_authorization. %v === %v", caller_affiliation, AUTHORITY))
+	// }
+
+	p.ID = args[0]
+	p.PatientID = args[1]
+	p.DIN = args[2]
+	p.State = MEDICATION_STATE_SUBMITTED
+
+	_, err  = t.save_changes(stub, p, p.ID)
+
+	if err != nil { fmt.Printf("create_prescription: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
+
+	return []byte (p.ID), nil
+}
+
 func (t *SimpleChaincode) create_authorization(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var a Authorization
-	a.ID = args[0]
+
+	if len(args) != 2 { fmt.Printf("create_authorization: Incorrect number of arguments passed"); return nil, errors.New("create_authorization: Incorrect number of arguments passed") }
 
 	record, err := stub.GetState(a.ID) 								// If not an error then a record exists so cant create a new authorization
 
@@ -216,6 +264,36 @@ func (t *SimpleChaincode) create_authorization(stub shim.ChaincodeStubInterface,
 	//	return nil, errors.New(fmt.Sprintf("Permission Denied. create_authorization. %v === %v", caller_affiliation, AUTHORITY))
 	// }
 
+	a.ID = args[0]
+	a.PrescriptionID = args[1]
+
+	bytes, err := stub.GetState(a.PrescriptionID);
+
+	if err != nil { return nil, errors.New("create_authorization: Invalid Prescription object search") }
+
+	if bytes == nil { return nil, errors.New("create_authorization: invalid Prescription id, not found") }
+
+	var p Prescription
+	err = json.Unmarshal(bytes, &p)
+
+	if err != nil { return nil, errors.New("create_authorization: internal error, Invalid Prescription object") }
+
+	a.PatientID = p.PatientID
+
+	bytes, err = stub.GetState(a.PatientID);
+
+	if err != nil { return nil, errors.New("create_authorization: Invalid Patient object search") }
+
+	if bytes == nil { return nil, errors.New("create_authorization: invalid Patient id, not found") }
+
+	var patient Patient
+
+	err = json.Unmarshal(bytes, &patient)
+
+	if err != nil { return nil, errors.New("create_authorization: internal error, Invalid Patient object") }
+	a.InsurerID = patient.InsurerID
+	a.DoctorID = patient.DoctorID
+	
 	_, err  = t.save_changes(stub, a, a.ID)
 
 	if err != nil { fmt.Printf("create_authorization: Error saving changes: %s", err); return nil, errors.New("Error saving changes") }
